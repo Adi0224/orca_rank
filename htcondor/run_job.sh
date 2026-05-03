@@ -127,7 +127,7 @@ fi
 METHOD="${METHOD:-lora_only}"
 LORA_RANK="${LORA_RANK:-8}"
 SEED="${SEED:-0}"
-EMBED_EP="${EMBED_EP:-30}"
+EMBED_EP="${EMBED_EP:-60}"
 JOB_TAG="${JOB_TAG:-${METHOD}_r${LORA_RANK}_s${SEED}}"
 OUT="${OUT:-runs/${JOB_TAG}}"
 OUTPUT_TARBALL="${OUTPUT_TARBALL:-orca_rank_gpu_results.tar.gz}"

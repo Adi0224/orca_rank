@@ -16,7 +16,7 @@ class ExperimentConfig:
     model_name: str = "EleutherAI/pythia-70m"
     max_length: int = 256
 
-    embedder_epochs: int = 30
+    embedder_epochs: int = 60
     otdd_inner_exact: bool = False  # True = inner_ot_method exact (slower); else gaussian_approx
     otdd_maxsamples_per_class: int = 64
     max_proxy_source_embeddings: int = 2048

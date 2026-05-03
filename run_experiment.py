@@ -21,7 +21,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--lora_rank", type=int, default=8)
     p.add_argument("--output_dir", type=str, required=True)
 
-    p.add_argument("--embedder_epochs", type=int, default=30)
+    p.add_argument("--embedder_epochs", type=int, default=60)
     p.add_argument("--dry_run", action="store_true")
     p.add_argument("--skip_eval", action="store_true")
     p.add_argument("--limit_train_batches", type=int, default=None)
