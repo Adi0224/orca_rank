@@ -22,7 +22,7 @@ def tokenize_alignment_prompt_batch(
         lbl10 = []
         qs = batch["question"]
         ans_texts = batch["answer"]
-        for q, ans in zip(qs, ans_texts, strict=False):
+        for q, ans in zip(qs, ans_texts):
             prompt = "Question:\n" + q.strip() + "\n\nAnswer:\n"
             enc = tokenizer(
                 prompt,

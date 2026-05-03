@@ -116,7 +116,7 @@ def tokenize_split(dataset: Dataset, tokenizer_name: str, max_length: int) -> Da
         prompt_lens = []
         lbl10 = []
         golds = []
-        for q, ans in zip(batch["question"], batch["answer"], strict=False):
+        for q, ans in zip(batch["question"], batch["answer"]):
             prompt, completion = format_prompt_completion(q, ans)
             full_text = prompt + completion
             enc_full = tokenizer(

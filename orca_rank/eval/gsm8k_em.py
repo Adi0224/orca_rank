@@ -30,7 +30,7 @@ def extract_from_generation(text: str) -> str:
 def gsm8k_exact_batch(generated: list[str], gold_answer_fields: list[str]) -> tuple[float, int, int]:
     ok = 0
     total = len(generated)
-    for gen, ga in zip(generated, gold_answer_fields, strict=False):
+    for gen, ga in zip(generated, gold_answer_fields):
         g = extract_from_generation(gen)
         gv = gold_from_answer_field(ga)
         ok += int(g == gv != "")
