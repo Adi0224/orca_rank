@@ -14,7 +14,7 @@ from transformers import AutoTokenizer
 
 from orca_rank.data.collate import Batch, collate_lm_batch
 from orca_rank.eval.gsm8k_em import gsm8k_exact_batch
-from orca_rank.training.gpu_utils import autocast_maybe_bf16_cuda, cuda_supports_bf16_autocast
+from orca_rank.training.gpu_utils import autocast_for_device
 
 
 class _HFDatasetView(Dataset):
@@ -88,9 +88,6 @@ def train_stage_b(
         drop_last=False,
     )
 
-    amp_enabled = bool(cfg.bf16) and torch.cuda.is_available() and cuda_supports_bf16_autocast()
-    device_type = "cuda" if torch.cuda.is_available() else "cpu"
-
     global_step = 0
     t0 = time.perf_counter()
     epoch_tail_losses: list[float] = []
@@ -112,8 +109,7 @@ def train_stage_b(
             attn = batch.attention_mask.to(device)
             labels = batch.labels.to(device)
 
-            ctx = torch.autocast(device_type=device_type, dtype=torch.bfloat16, enabled=amp_enabled)
-            with ctx:
+            with autocast_for_device(device, cfg.bf16):
                 out = model_wrapper(input_ids=inp, attention_mask=attn, labels=labels)
             loss = out.loss / float(accum)
 
@@ -146,7 +142,14 @@ def train_stage_b(
 
     em = float("nan")
     if not cfg.skip_eval:
-        em, _, _ = evaluate_gsm8k(model_wrapper, tokenizer, val_raw_hf_ds, device, cfg.max_length)
+        em, _, _ = evaluate_gsm8k(
+            model_wrapper,
+            tokenizer,
+            val_raw_hf_ds,
+            device,
+            cfg.max_length,
+            use_bf16_autocast=cfg.bf16,
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     em_out: float | None
@@ -181,13 +184,13 @@ def model_adapter_params(model_wrapper) -> list[torch.Tensor]:
     return [p for p in model_wrapper.adapter.parameters() if p.requires_grad]
 
 
-def evaluate_gsm8k(model_wrapper, tokenizer, raw_val_hf, device, max_prompt_len):
+def evaluate_gsm8k(model_wrapper, tokenizer, raw_val_hf, device, max_prompt_len, *, use_bf16_autocast: bool):
     model_wrapper.eval()
     preds: list[str] = []
     golds: list[str] = []
     pad_id = tokenizer.pad_token_id
 
-    ac = autocast_maybe_bf16_cuda()
+    ac = autocast_for_device(device, use_bf16_autocast)
 
     with torch.no_grad():
         for i in range(len(raw_val_hf)):
