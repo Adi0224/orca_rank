@@ -46,7 +46,8 @@ def read_metrics_from_tar(tf: tarfile.TarFile) -> list[tuple[str, dict[str, Any]
         if not m.isfile():
             continue
         name = m.name.lstrip("./")
-        if "/runs/" not in name or not name.endswith("metrics.json"):
+        # Members are usually `runs/...` (no leading slash inside tar.gz).
+        if "runs/" not in name or not name.endswith("metrics.json"):
             continue
         if name.endswith("metrics.partial.json"):
             continue
@@ -210,6 +211,7 @@ def plot_figs(df: Any, out_dir: Path, pd_mod: Any) -> list[Path]:
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    import numpy as np
 
     paths: list[Path] = []
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -246,8 +248,9 @@ def plot_figs(df: Any, out_dir: Path, pd_mod: Any) -> list[Path]:
 
             pivot = dd.pivot_table(index="method", columns="lora_r", values=em, aggfunc="mean")
             plt.figure(figsize=(max(6, pivot.shape[1] * 1.2), max(4, pivot.shape[0] * 0.8)))
-            vmax = float(pivot.max(skipna=True))
-            vmin = float(pivot.min(skipna=True))
+
+            vmax = float(np.nanmax(pivot.values.astype(np.float64)))
+            vmin = float(np.nanmin(pivot.values.astype(np.float64)))
             if math.isnan(vmax):
                 vmax = 0.0
             if math.isnan(vmin):
