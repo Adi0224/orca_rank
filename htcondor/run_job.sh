@@ -12,6 +12,33 @@ set -euo pipefail
 WORK="${_CONDOR_SCRATCH_DIR:-$(pwd)}"
 cd "${WORK}"
 
+# Append human-readable disk/GPU snapshot (and mirror to stdout). Written under ${OUT}/
+# so it is included in orca_rank_gpu_results.tar.gz — use to tune request_disk / pool choice.
+log_condor_resources() {
+  local label="$1"
+  local log_file="$2"
+  mkdir -p "$(dirname "$log_file")"
+  {
+    echo "=== condor_resource_usage: ${label} ==="
+    echo "date: $(date -Is 2>/dev/null || date)"
+    echo "WORK=${WORK}"
+    echo "--- scratch total ---"
+    du -sh . 2>/dev/null || true
+    echo "--- large dirs (du -sh) ---"
+    du -sh venv hf_cache runs 2>/dev/null | sort -h || true
+    echo "--- transfer_input_files ---"
+    ls -lh venv.tar.gz code.tar.gz 2>/dev/null || true
+    echo "--- GPU ---"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+      nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free --format=csv,noheader
+    else
+      echo "nvidia-smi not in PATH"
+    fi
+    echo "--- end ${label} ---"
+    echo ""
+  } | tee -a "$log_file"
+}
+
 if [[ ! -f venv.tar.gz || ! -f code.tar.gz ]]; then
   echo "Missing transfer_input_files: venv.tar.gz and/or code.tar.gz" >&2
   exit 9
@@ -88,6 +115,8 @@ PROBE
     date -Is 2>/dev/null || date
   } >>"${OUT}/condor_job_status.txt"
 
+  log_condor_resources "pre_pack_smoke" "${OUT}/condor_resource_usage.txt"
+
   echo "Smoke finished (python exit ${_rc}) — packing ${OUT}"
   tar -czf "${OUTPUT_TARBALL}" "${OUT}"
   ls -lh "${OUTPUT_TARBALL}"
@@ -116,5 +145,8 @@ _rc=${?}
 set -euo pipefail
 
 echo "run_experiment exit_code=${_rc}" >>"${OUT}/condor_job_status.txt"
+
+log_condor_resources "pre_pack_full" "${OUT}/condor_resource_usage.txt"
+
 tar -czf "${OUTPUT_TARBALL}" "${OUT}"
 exit "${_rc}"
