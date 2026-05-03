@@ -6,6 +6,21 @@ import torch
 from otdd.pytorch.distance import DatasetDistance
 
 
+def _stabilize_feats_for_geomloss(feats: torch.Tensor) -> torch.Tensor:
+    """GeomLoss Sinkhorn builds an epsilon ladder from cloud `diameter`; near-collapsed
+    batches (often a few pooled LM vectors) yield invalid schedules (ValueError: arange).
+
+    Small iid jitter breaks exact degeneracy; scale uses row std when available, else
+    an absolute floor so zero-variance pooled vectors still perturb.
+    """
+    if feats.numel() == 0:
+        return feats
+    flat = feats.detach().flatten(1)
+    sd = float(flat.std(dim=1, unbiased=False).mean().cpu())
+    noise_scale = max(sd * 1e-5, 1e-4)
+    return feats + noise_scale * torch.randn_like(feats)
+
+
 def otdd_scalar(
     feats: torch.Tensor,
     ys: torch.Tensor,
@@ -16,6 +31,7 @@ def otdd_scalar(
     """Differentiable OTDD between frozen source embeddings and pooled target feats."""
 
     feats = feats.to(dtype=torch.float32)
+    feats = _stabilize_feats_for_geomloss(feats)
     dataset = torch.utils.data.TensorDataset(feats, ys.long())
     ms = max(1, min(maxsamples, len(src_train_dataset), len(dataset)))
 
