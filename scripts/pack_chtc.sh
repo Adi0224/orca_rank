@@ -19,3 +19,5 @@ tar -czvf "${CODE_TAR}" \
   orca_rank run_experiment.py third_party configs requirements*.txt README.md htcondor scripts
 
 echo "Wrote ${CODE_TAR}"
+cp -f "${CODE_TAR}" "${HERE}/code.tar.gz"
+echo "Updated ${HERE}/code.tar.gz (Condor transfer_input_files)"
