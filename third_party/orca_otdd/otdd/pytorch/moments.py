@@ -5,6 +5,7 @@
 import logging
 import pdb
 
+import numpy as np
 import torch
 import torch.utils.data.dataloader as dataloader
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -291,7 +292,17 @@ def compute_label_stats(data, targets=None,indices=None,classnames=None,
     if classnames is None:
         classnames = sorted([a.item() for a in torch.unique(targets)])
 
-    effective_targets = targets[indices]
+    ## CPU index path: combining numpy `indices` with a CUDA boolean mask makes NumPy try to
+    ## materialize CUDA tensors (fails). Keep labels/masks on CPU for this bookkeeping only.
+    idx_np = indices.detach().cpu().numpy() if torch.is_tensor(indices) else np.asarray(indices, dtype=np.int64)
+    if torch.is_tensor(targets):
+        targets_cpu = targets.detach().cpu()
+        effective_targets = targets_cpu[idx_np]
+    else:
+        effective_targets = torch.as_tensor(targets)[idx_np]
+
+    def _class_int(c):
+        return int(c.item()) if torch.is_tensor(c) else int(c)
 
     if nworkers > 1:
         import torch.multiprocessing as mp # Ugly, sure. But useful.
@@ -300,7 +311,8 @@ def compute_label_stats(data, targets=None,indices=None,classnames=None,
         S = mp.Manager().dict()
         processes = []
         for i,c in enumerate(classnames): # No. of processes
-            label_indices = indices[effective_targets == c]
+            mask = (effective_targets == _class_int(c)).cpu().numpy()
+            label_indices = idx_np[mask]
             p = mp.Process(target=_single_label_stats,
                            args=(data, i,c,label_indices,M,S),
                            kwargs={'device': device, 'online':online})
@@ -309,7 +321,8 @@ def compute_label_stats(data, targets=None,indices=None,classnames=None,
         for p in processes: p.join()
     else:
         for i,c in enumerate(classnames):
-            label_indices = indices[effective_targets == c]
+            mask = (effective_targets == _class_int(c)).cpu().numpy()
+            label_indices = idx_np[mask]
             μ,Σ,n = _single_label_stats(data, i,c,label_indices, device=device,
                                         dtype=dtype, embedding=embedding,
                                         online=online, diagonal_cov=diagonal_cov)
