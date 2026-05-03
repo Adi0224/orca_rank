@@ -1,0 +1,22 @@
+# Core stack (CUDA torch pinned separately — see requirements-chtc-torch-example.txt).
+transformers>=4.38.0
+accelerate>=0.27.0
+peft>=0.11.0
+datasets>=2.18.0
+safetensors>=0.4.3
+sentencepiece>=0.1.99
+protobuf>=4.23.0
+numpy>=1.24.0
+tqdm>=4.66.0
+pyyaml>=6.0.1
+
+# OTDD transitive deps (from vendored microsoft-style otdd bundle)
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+matplotlib>=3.7.0
+POT>=0.9.0
+geomloss>=0.2.6
+seaborn>=0.13.0
+adjustText>=1.0
+munkres>=1.1.4

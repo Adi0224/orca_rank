@@ -1,0 +1,16 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.tar.gz
+results/
+runs/
+wandb/
+.huggingface/
+hf_cache/
+*.log
+*.out
+*.err
+.DS_Store
+.pytest_cache/
+external_ORCA/

@@ -1,0 +1,6 @@
+# Paste your pool's Torch+cuXYZ wheel index here. Example CUDA 11.8:
+# cu118 wheels include SASS for Pascal (sm_60) — suitable for CHTC Tesla P100.
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch>=2.1.0
+torchaudio>=2.1.0
+torchvision>=0.16.0
