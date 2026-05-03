@@ -13,7 +13,11 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
 from orca_rank.data.collate import Batch, collate_lm_batch
-from orca_rank.eval.gsm8k_em import gsm8k_exact_batch
+from orca_rank.eval.gsm8k_em import (
+    extract_from_generation,
+    gold_from_answer_field,
+    gsm8k_exact_batch,
+)
 from orca_rank.training.gpu_utils import autocast_for_device
 
 
@@ -142,6 +146,7 @@ def train_stage_b(
 
     em = float("nan")
     if not cfg.skip_eval:
+        pred_dump = (output_dir / "val_predictions.json") if cfg.dump_val_predictions else None
         em, _, _ = evaluate_gsm8k(
             model_wrapper,
             tokenizer,
@@ -149,6 +154,7 @@ def train_stage_b(
             device,
             cfg.max_length,
             use_bf16_autocast=cfg.bf16,
+            dump_predictions_json=pred_dump,
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -165,6 +171,8 @@ def train_stage_b(
         "train_loss_epochs_mean_tail": epoch_tail_losses[-1:] if epoch_tail_losses else [],
         "val_exact_match_mean": em_out,
     }
+    if cfg.dump_val_predictions and not cfg.skip_eval:
+        metrics["val_predictions_filename"] = "val_predictions.json"
     (output_dir / "metrics.partial.json").write_text(json.dumps(metrics, indent=2))
 
     adapter_dir = output_dir / "lora_adapter"
@@ -184,10 +192,20 @@ def model_adapter_params(model_wrapper) -> list[torch.Tensor]:
     return [p for p in model_wrapper.adapter.parameters() if p.requires_grad]
 
 
-def evaluate_gsm8k(model_wrapper, tokenizer, raw_val_hf, device, max_prompt_len, *, use_bf16_autocast: bool):
+def evaluate_gsm8k(
+    model_wrapper,
+    tokenizer,
+    raw_val_hf,
+    device,
+    max_prompt_len,
+    *,
+    use_bf16_autocast: bool,
+    dump_predictions_json: Path | None = None,
+):
     model_wrapper.eval()
     preds: list[str] = []
     golds: list[str] = []
+    questions: list[str] = []
     pad_id = tokenizer.pad_token_id
 
     ac = autocast_for_device(device, use_bf16_autocast)
@@ -196,6 +214,7 @@ def evaluate_gsm8k(model_wrapper, tokenizer, raw_val_hf, device, max_prompt_len,
         for i in range(len(raw_val_hf)):
             row = raw_val_hf[i]
             q = row["question"].strip()
+            questions.append(q)
             gold_a = row["answer"]
             prompt = "Question:\n" + q + "\n\nAnswer:\n"
             enc = tokenizer(
@@ -221,4 +240,27 @@ def evaluate_gsm8k(model_wrapper, tokenizer, raw_val_hf, device, max_prompt_len,
             preds.append(decoded)
             golds.append(gold_a)
 
-    return gsm8k_exact_batch(preds, golds)
+    em, ok, total = gsm8k_exact_batch(preds, golds)
+    if dump_predictions_json is not None:
+        rows: list[dict[str, Any]] = []
+        for i in range(total):
+            pp = preds[i]
+            ga = golds[i]
+            parsed_p = extract_from_generation(pp)
+            parsed_g = gold_from_answer_field(ga)
+            rows.append(
+                {
+                    "idx": i,
+                    "question": questions[i],
+                    "prediction_raw": pp,
+                    "gold_answer_field": ga,
+                    "parsed_pred_numeric": parsed_p,
+                    "parsed_gold_numeric": parsed_g,
+                    # Same rule as gsm8k_exact_batch: both parsed nonempty and equal.
+                    "numeric_match": bool(parsed_p == parsed_g and parsed_g != ""),
+                }
+            )
+        dump_predictions_json.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"val_exact_match_mean": float(em), "ok": ok, "total": total, "items": rows}
+        dump_predictions_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    return float(em), int(ok), int(total)

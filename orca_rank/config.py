@@ -46,6 +46,9 @@ class ExperimentConfig:
     limit_train_batches: int | None = None
     skip_eval: bool = False
 
+    #: If True, Stage B GSM8K eval writes val_predictions.json in output_dir (skip_eval skips eval).
+    dump_val_predictions: bool = False
+
     def resolved_lora_alpha(self) -> int:
         if self.lora_alpha is not None:
             return self.lora_alpha

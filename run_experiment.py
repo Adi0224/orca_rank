@@ -60,6 +60,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--no_bf16", action="store_true", help="Disable bf16 autocast (fp32 on GPU)")
     p.add_argument(
+        "--dump_val_predictions",
+        action="store_true",
+        help="Write GSM8K val generations to output_dir/val_predictions.json (after Stage B)",
+    )
+    p.add_argument(
         "--device",
         choices=("auto", "cuda", "cpu", "mps"),
         default="auto",
@@ -84,6 +89,7 @@ def main(argv: list[str] | None = None):
         dry_run=args_ns.dry_run,
         skip_eval=args_ns.skip_eval,
         limit_train_batches=args_ns.limit_train_batches,
+        dump_val_predictions=args_ns.dump_val_predictions,
     )
     ov: dict = {}
     if args_ns.stage_b_epochs is not None:
