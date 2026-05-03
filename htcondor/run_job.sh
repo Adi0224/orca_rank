@@ -138,11 +138,15 @@ mkdir -p "${OUT}"
 #   MAX_STAGE_B_STEPS    -> --max_stage_b_steps (omit = config default 600)
 #   STAGE_B_GRAD_ACCUM      -> --grad_accum      (omit = config default 8)
 #   DUMP_VAL_PREDICTIONS=1  -> --dump_val_predictions (GSM8K val generations JSON in ${OUT})
+#   HARD_TRAIN_SAMPLES etc. -> optional --hard_train_samples / --val_samples / --easy_pool_samples
 FULL_EXTRA=()
 [[ -n "${STAGE_B_EPOCHS:-}" ]] && FULL_EXTRA+=(--stage_b_epochs "${STAGE_B_EPOCHS}")
 [[ -n "${MAX_STAGE_B_STEPS:-}" ]] && FULL_EXTRA+=(--max_stage_b_steps "${MAX_STAGE_B_STEPS}")
 [[ -n "${STAGE_B_GRAD_ACCUM:-}" ]] && FULL_EXTRA+=(--grad_accum "${STAGE_B_GRAD_ACCUM}")
 [[ "${DUMP_VAL_PREDICTIONS:-0}" == "1" ]] && FULL_EXTRA+=(--dump_val_predictions)
+[[ -n "${HARD_TRAIN_SAMPLES:-}" ]] && FULL_EXTRA+=(--hard_train_samples "${HARD_TRAIN_SAMPLES}")
+[[ -n "${VAL_SAMPLES:-}" ]] && FULL_EXTRA+=(--val_samples "${VAL_SAMPLES}")
+[[ -n "${EASY_POOL_SAMPLES:-}" ]] && FULL_EXTRA+=(--easy_pool_samples "${EASY_POOL_SAMPLES}")
 
 set +e
 python run_experiment.py \
