@@ -302,7 +302,13 @@ def load_full_dataset(data, targets=False, return_both_targets=False,
 
 
     if labels_keep is not None: # Filter out examples with unwanted label
-        keeps = np.isin(Y.cpu(), labels_keep)
+        # np.isin must see NumPy/CPU arrays; labels_keep/V1 slices can live on CUDA.
+        y_np = Y.detach().cpu().numpy()
+        if torch.is_tensor(labels_keep):
+            lk_np = labels_keep.detach().cpu().numpy().ravel()
+        else:
+            lk_np = np.asarray(labels_keep)
+        keeps = np.isin(y_np, lk_np)
         X = X[keeps,:]
         Y = Y[keeps]
 
