@@ -61,6 +61,10 @@ PROBE
   EMBED_EP="${EMBED_EP:-1}"
   JOB_TAG="${JOB_TAG:-gpu_smoke_chtc}"
   OUT="${OUT:-runs/${JOB_TAG}}"
+  OUTPUT_TARBALL="${OUTPUT_TARBALL:-orca_rank_gpu_results.tar.gz}"
+  mkdir -p "${OUT}"
+
+  set +e
   PYTHONPATH="${PWD}:${PYTHONPATH:-}" python run_experiment.py \
     --method "${METHOD}" \
     --lora_rank "${LORA_RANK:-8}" \
@@ -76,11 +80,19 @@ PROBE
     --max_stage_b_steps 6 \
     --output_dir "${OUT}" \
     "${EXTRA_OPTS[@]}"
+  _rc=${?}
+  set -euo pipefail
 
-  echo "Smoke OK — output dir: ${OUT}"
-  OUTPUT_TARBALL="${OUTPUT_TARBALL:-orca_rank_gpu_results.tar.gz}"
-  tar -czf "${OUTPUT_TARBALL}" "${OUT}" || true
-  exit 0
+  {
+    echo "run_experiment exit_code=${_rc}"
+    date -Is 2>/dev/null || date
+  } >>"${OUT}/condor_job_status.txt"
+
+  echo "Smoke finished (python exit ${_rc}) — packing ${OUT}"
+  tar -czf "${OUTPUT_TARBALL}" "${OUT}"
+  ls -lh "${OUTPUT_TARBALL}"
+
+  exit "${_rc}"
 fi
 
 METHOD="${METHOD:-lora_only}"
@@ -90,7 +102,9 @@ EMBED_EP="${EMBED_EP:-30}"
 JOB_TAG="${JOB_TAG:-${METHOD}_r${LORA_RANK}_s${SEED}}"
 OUT="${OUT:-runs/${JOB_TAG}}"
 OUTPUT_TARBALL="${OUTPUT_TARBALL:-orca_rank_gpu_results.tar.gz}"
+mkdir -p "${OUT}"
 
+set +e
 python run_experiment.py \
   --method "${METHOD}" \
   --lora_rank "${LORA_RANK}" \
@@ -98,5 +112,9 @@ python run_experiment.py \
   --embedder_epochs "${EMBED_EP}" \
   --output_dir "${OUT}" \
   "${EXTRA_OPTS[@]}"
+_rc=${?}
+set -euo pipefail
 
-tar -czf "${OUTPUT_TARBALL}" "${OUT}" || true
+echo "run_experiment exit_code=${_rc}" >>"${OUT}/condor_job_status.txt"
+tar -czf "${OUTPUT_TARBALL}" "${OUT}"
+exit "${_rc}"
